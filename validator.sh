@@ -23,8 +23,17 @@ ORIGPWD=`pwd`
 BASEDIR="$ORIGPWD"
 
 # Make sure this is an absolute path with preceding '/'
-LOCAL_M2_REPO="$BASEDIR/m2repo"
 LOGGINGDIR="$HOME"
+
+# prerequites
+
+# Java 1.6.x
+JAVA_VERSION=$(javaoo -version 2>&1 | grep 'java version' | awk -F '"' '{print $2;}')
+JAVA_SHORT_VERSION=${JAVA_VERSION:0:3}
+if [ "1.6" != "${SHORT_VERSION}" ]; then
+  echo "Please run the validator with Java 1.6."
+  exit 2
+fi
 
 # :docstring usage:
 # Usage: usage
@@ -400,6 +409,10 @@ do
     shift
 done
 
+if [[ -n "$LOCAL_M2_REPO" ]]; then
+    LOCAL_M2_REPO="$BASEDIR/m2repo"
+fi
+
 SCALADIR="$BASEDIR/scala/"
 if [[ -z $BUILDIT && -z $SCALAHASH && ! -d $SCALADIR ]]; then
     echo "-h must be used or a source repo provided when not building Scala from source"
@@ -466,6 +479,7 @@ if [ $already_built -ne 0 ]; then
     else
         say "### the Scala compiler was not in local maven $LOCAL_M2_REPO, building"
         cd $SCALADIR
+        export ANT_OPTS="-Xms512M -Xmx2048M -Xss1M -XX:MaxPermSize=128M"
         full_hash=$(git rev-parse $SCALAHASH)
         set +e
         response=$(curl --write-out %{http_code} --silent --output /dev/null "http://scala-webapps.epfl.ch/artifacts/$full_hash")
