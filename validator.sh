@@ -466,7 +466,7 @@ if [ $already_built -ne 0 ]; then
     else
         say "### the Scala compiler was not in local maven $LOCAL_M2_REPO, building"
         cd $SCALADIR
-        full_hash=$(git rev-parse $SCALAHASH)
+        full_hash=$(git rev-parse HEAD $SCALAHASH)
         set +e
         response=$(curl --write-out %{http_code} --silent --output /dev/null "http://scala-webapps.epfl.ch/artifacts/$full_hash")
         set -e
@@ -490,9 +490,9 @@ if [ $already_built -ne 0 ]; then
                 exit 125
             fi
         else
-            present_hash=$(git rev-parse | cut -c 1-7)
-            if [ $present_hash != $SCALA_HASH ]; then
-                say "### You are requiring $SCALA_HASH, which is not in $SCALA_DIR (found $present_hash), aborting!"
+            present_hash=$(git rev-parse HEAD | cut -c 1-7)
+            if [ "$present_hash" != "$SCALAHASH" ]; then
+                say "### You are requiring $SCALAHASH, which is not in $SCALADIR (found $present_hash), aborting!"
                 exit 125
             fi
             (test ant-clean) || exit 125
