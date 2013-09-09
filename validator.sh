@@ -23,7 +23,6 @@ ORIGPWD=`pwd`
 BASEDIR="$ORIGPWD"
 
 # Make sure this is an absolute path with preceding '/'
-LOCAL_M2_REPO="$BASEDIR/m2repo"
 LOGGINGDIR="$HOME"
 
 # :docstring usage:
@@ -35,6 +34,7 @@ function usage() {
     echo "Usage : $0 [-b <basedir>] [-d] [-h <scalahash>] [-s]"
     echo "    -b : basedir where to find checkouts"
     echo "    -s : build Scala if it can't be downloaded"
+    echo "    -j : override the check on Java version"
     echo "    -h : the 7-letter abbrev of the hash to build/retrieve"
     echo "    -l : the local maven repo to use (default BASEDIR/m2repo) "
     echo "Note : either -s or -h <scalahash> must be used"
@@ -46,6 +46,8 @@ function usage() {
 # :end docstring:
 
 function set_versions(){
+    echo "### M2 REPO set to : $LOCAL_M2_REPO" | tee -a $LOGGINGDIR/compilation-$SCALADATE-$SCALAHASH.log || exit 125
+
     if [[ -z $SCALAHASH ]] || [[ ! -z $BUILDIT ]]; then
         pushd $SCALADIR
         SCALAHASH=$(git rev-parse HEAD | cut -c 1-7)
@@ -386,19 +388,35 @@ function maven_fail_detect() {
 
 # look for the command line options
 # again, single-letter options only because OSX's getopt is limited
-set -- $(getopt sb:h:l: $*)
+set -- $(getopt sjb:h:l: $*)
 while [ $# -gt 0 ]
 do
     case "$1" in
     (-b) BASEDIR=$2; shift;;
     (-s) BUILDIT=yes;;
     (-h) SCALAHASH=$2;;
+    (-j) JAVAOVERRIDE=yes;;
     (-l) LOCAL_M2_REPO=$2;;
     (--) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; usage; exit 1;;
     esac
     shift
 done
+
+# prerequisites
+# Java 1.6.x
+if [ -z $JAVAOVERRIDE ]; then
+    JAVA_VERSION=$(javaoo -version 2>&1 | grep 'java version' | awk -F '"' '{print $2;}')
+    JAVA_SHORT_VERSION=${JAVA_VERSION:0:3}
+    if [ "1.6" != "${SHORT_VERSION}" ]; then
+        echo "Please run the validator with Java 1.6."
+        exit 2
+    fi
+fi
+
+if [ -z "$LOCAL_M2_REPO" ]; then
+    LOCAL_M2_REPO="$BASEDIR/m2repo"
+fi
 
 SCALADIR="$BASEDIR/scala/"
 if [[ -z $BUILDIT && -z $SCALAHASH && ! -d $SCALADIR ]]; then
@@ -466,6 +484,7 @@ if [ $already_built -ne 0 ]; then
     else
         say "### the Scala compiler was not in local maven $LOCAL_M2_REPO, building"
         cd $SCALADIR
+        export ANT_OPTS="-Xms512M -Xmx2048M -Xss1M -XX:MaxPermSize=128M"
         full_hash=$(git rev-parse HEAD $SCALAHASH)
         set +e
         response=$(curl --write-out %{http_code} --silent --output /dev/null "http://scala-webapps.epfl.ch/artifacts/$full_hash")
