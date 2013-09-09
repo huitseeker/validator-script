@@ -44,6 +44,7 @@ function usage() {
     echo "Usage : $0 [-b <basedir>] [-d] [-h <scalahash>] [-s]"
     echo "    -b : basedir where to find checkouts"
     echo "    -s : build Scala if it can't be downloaded"
+    echo "    -j : override the check on Java version"
     echo "    -h : the 7-letter abbrev of the hash to build/retrieve"
     echo "    -l : the local maven repo to use (default BASEDIR/m2repo) "
     echo "Note : either -s or -h <scalahash> must be used"
@@ -402,6 +403,7 @@ do
     (-b) BASEDIR=$2; shift;;
     (-s) BUILDIT=yes;;
     (-h) SCALAHASH=$2;;
+    (-j) JAVAOVERRIDE=yes;;
     (-l) LOCAL_M2_REPO=$2;;
     (--) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; usage; exit 1;;
@@ -409,9 +411,22 @@ do
     shift
 done
 
-if [[ -n "$LOCAL_M2_REPO" ]]; then
+# prerequisites
+# Java 1.6.x
+if [ ! -z $JAVAOVERRIDE ]; then
+    JAVA_VERSION=$(javaoo -version 2>&1 | grep 'java version' | awk -F '"' '{print $2;}')
+    JAVA_SHORT_VERSION=${JAVA_VERSION:0:3}
+    if [ "1.6" != "${SHORT_VERSION}" ]; then
+        echo "Please run the validator with Java 1.6."
+        exit 2
+    fi
+fi
+
+if [[ -z "$LOCAL_M2_REPO" ]]; then
     LOCAL_M2_REPO="$BASEDIR/m2repo"
 fi
+
+echo "### M2 REPO set to : $LOCAL_M2_REPO"
 
 SCALADIR="$BASEDIR/scala/"
 if [[ -z $BUILDIT && -z $SCALAHASH && ! -d $SCALADIR ]]; then
