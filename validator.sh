@@ -279,14 +279,20 @@ function sbtbuild(){
     fi
     echo "sbt.repository.config=$DEST_REPO_FILE" >> project/build.properties
     echo "sbt.override.build.repos=true" >> project/build.properties
-    echo "### forcing sbt to look at sbt-dir $EXTRASBTDIR"
+    echo "### forcing sbt to look at sbt-dir $EXTRASBTDIR" | tee -a $LOGGINGDIR/compilation-$SCALADATE-$SCALAHASH.log || exit 125
+
+    if [ $SCALAMINOR -gt 10 ]; then
+        SCALABINARYVERSION="2.11.0-M4"
+    else
+        SCALABINARYVERSION="$SCALAVERSION-$SCALAHASH-SNAPSHOT"
+    fi
 
     set +e
     sbt $EXTRASBTDIR -verbose -debug  -Dsbt.ivy.home=$IVY_CACHE/.cache/.ivy2/ "reboot full" clean "show scala-instance" "set every crossScalaVersions := Seq(\"$SCALAVERSION-$SCALAHASH-SNAPSHOT\")"\
      "set every version := \"$SBTVERSION\""\
      "set every scalaVersion := \"$SCALAVERSION-$SCALAHASH-SNAPSHOT\""\
      'set every Util.includeTestDependencies := false' \
-        'set every scalaBinaryVersion <<= scalaVersion.identity' \
+        "set scalaBinaryVersion in Global := \"$SCALABINARYVERSION\""\
         'set (libraryDependencies in compilePersistSub) ~= { ld => ld map { case dep if (dep.organization == "org.scala-tools.sbinary") && (dep.name == "sbinary") => dep.copy(revision = (dep.revision + "-SNAPSHOT")) ; case dep => dep } }' \
         'set every publishMavenStyle := true' \
         "set every resolvers := Seq(\"Sonatype OSS Snapshots\" at \"https://oss.sonatype.org/content/repositories/snapshots\", \"Typesafe IDE\" at \"https://private-repo.typesafe.com/typesafe/ide-$SCALASHORT\", \"Local maven\" at \"file://$LOCAL_M2_REPO\")" \
@@ -319,6 +325,11 @@ function sbtbuild(){
 # :end docstring:
 
 function sbinarybuild(){
+    if [ $SCALAMINOR -gt 10 ]; then
+        SCALABINARYVERSION="2.11.0-M4"
+    else
+        SCALABINARYVERSION="$SCALAVERSION-$SCALAHASH-SNAPSHOT"
+    fi
     if [ -f project/build.properties ]; then
         OLD_BUILDPROPERTIES_FILE=$(mktemp -t buildpropsXXX)
         cat project/build.properties > $OLD_BUILDPROPERTIES_FILE
@@ -333,11 +344,11 @@ function sbinarybuild(){
     set +e
     sbt $EXTRASBTDIR -verbose -debug -Dsbt.ivy.home=$IVY_CACHE/.cache/.ivy2/ "reboot full" clean "show scala-instance" \
   "set every scalaVersion := \"$SCALAVERSION-$SCALAHASH-SNAPSHOT\""\
+        "set scalaBinaryVersion in Global := \"$SCALABINARYVERSION\""\
   "set (version in core) := \"$SBINARYVERSION\"" \
   "set every crossScalaVersions := Seq(\"$SCALAVERSION-$SCALAHASH-SNAPSHOT\")"\
-  'set every scalaBinaryVersion <<= scalaVersion.identity' \
   'set (libraryDependencies in core) ~= { _ filterNot (_.configurations.map(_ contains "test").getOrElse(false)) }' \
-  'set every publishMavenStyle := true' \
+ 'set every publishMavenStyle := true' \
   "set every resolvers := Seq(\"Sonatype OSS Snapshots\" at \"https://oss.sonatype.org/content/repositories/snapshots\", \"Typesafe IDE\" at \"https://private-repo.typesafe.com/typesafe/ide-$SCALASHORT\", \"Local maven\" at \"file://$LOCAL_M2_REPO\")" \
   'set every credentials := Seq(Credentials(Path.userHome / ".credentials"))' \
   "set every publishTo := Some(Resolver.file(\"file\",  new File(\"$LOCAL_M2_REPO\")))" \
@@ -526,11 +537,11 @@ fi
 # Prepare .sbt/repositories resolution
 # Am I using sbt-extras ?
 set +e
-sbt --version 2>&1|head -n 1|grep -qe "Detected"
+sbt -v --version 2>&1|head -n 2|grep -qe "Detected"
 sbt_extraed=$?
 set -e
 if [ $sbt_extraed -eq 0 ]; then
-    SBT_INSTALLED=$(sbt --version 2>&1 |head -n 1|sed -rn 's/.*?([0-9]+\.[0-9]+\.[0-9]+(-[A-Z 0-9]+)?)/\1/p')
+    SBT_INSTALLED=$(sbt -v --version 2>&1 |head -n 2|tail -n 1|sed -rn 's/.*?([0-9]+\.[0-9]+\.[0-9]+(-[A-Z 0-9]+)?)/\1/p')
     if [ -z $SBT_BOOTSTRAP_VERSION ]; then
         SBT_BOOTSTRAP_VERSION=$SBT_INSTALLED
     fi
