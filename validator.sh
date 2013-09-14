@@ -93,11 +93,7 @@ function set_versions(){
     # versions ! (it mints custom versions every time it has an
     # incompatibility to fix)
     # <--- this is super sensitive stuff ---->
-    if [[ $SCALAMINOR -gt 10 ]]; then
         SBTVERSION=$(sed -rn 's/[^t]*<sbt\.version>([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+[0-9]+)?(-SNAPSHOT)?)<\/sbt\.version>.*/\1/p' $IDEDIR/pom.xml|tail -n 1)
-    else
-        SBTVERSION=$(sed -rn 's/[^t]*<sbt\.version>([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+[0-9]+)?(-SNAPSHOT)?)<\/sbt\.version>.*/\1/p' $IDEDIR/pom.xml|tail -n 2|head -n 1)
-    fi
     # <--- this is super sensitive stuff ---->
     if [ -z $SBTVERSION ]; then exit 125; fi
     echo "### SBT version detected: \"$SBTVERSION\""| tee -a $LOGGINGDIR/compilation-$SCALADATE-$SCALAHASH.log
